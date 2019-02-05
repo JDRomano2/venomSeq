@@ -1,0 +1,10 @@
+file_name	description	data_type	assay_platform	dimensions	num_elements_in_millions	provider	institution	source_url	citation
+testdata_n1000x978.gct	Exemplar GCT v1.3 dataset for testing purposes	mRNA gene expression	L1000	978 x 1000	1.0	Connectivity Map	Broad Institute	-	-
+testdata_n1000x978.gctx	Exemplar GCTx dataset for testing purposes	mRNA gene expression	L1000	978 x 1000	1.0	Connectivity Map	Broad Institute	-	-
+annotated_GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328.gctx	Perturbational mRNA expression profiles in human cancer cell lines	mRNA gene expression	L1000	12328 x 473647	5839.1	Connectivity Map	Broad Institute	https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE92742	https://www.ncbi.nlm.nih.gov/pubmed/29195078
+annotated_GSE101406_Broad_LINCS_P100_Level4_DIFF_n1684x96.gctx	Perturbational phosphoproteomic profiles in human cancer cell lines	phospho-proteomic expression	P100	96 x 1684	0.2	PCCSE	Broad Institute	https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE101406	https://www.biorxiv.org/content/early/2017/09/07/185918
+annotated_GSE101406_Broad_LINCS_GCP_Level4_DIFF_n1712x59.gctx	Perturbational global chromatin profiles in human cancer cell lines	global chromatin profiles	GCP	59 x 1712	0.1	PCCSE	Broad Institute	https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE101406	https://www.biorxiv.org/content/early/2017/09/07/185918
+[annotated_ARCHS4_human_n65429x35238.gctx]	Compendium of public
+RNASeq profiles	mRNA gene expression	RNASeq	35238 x 65429	2305.6
+Mayaan Lab	Icahn school of Medicine at Mt. Sinai	Available for
+download at http://amp.pharm.mssm.edu/archs4/download.html	https://www.biorxiv.org/content/early/2017/09/15/189092
