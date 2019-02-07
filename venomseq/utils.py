@@ -7,14 +7,15 @@ def read_gctx(fname, col_meta=True, row_meta=True):
   data_df = tmp.data_df
 
   fix_mangled_byte_literals(data_df)
-  
+
   if (col_meta):
     cm = tmp.col_metadata_df
     fix_mangled_byte_literals(cm)
+    cm['sig_num'] = list(range(cm.shape[0]))
   if (row_meta):
     rm = tmp.row_metadata_df
     fix_mangled_byte_literals(rm)
-  
+
   return (data_df, cm, rm)
 
 def fix_mangled_byte_literals(data_df):
