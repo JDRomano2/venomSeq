@@ -3,7 +3,6 @@ from tqdm import tqdm
 import time
 from collections import defaultdict
 
-import ipdb
 
 # Default metaparameters
 BLOCK_NCOLS = 1000
