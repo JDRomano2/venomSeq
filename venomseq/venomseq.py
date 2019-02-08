@@ -58,7 +58,7 @@ class VenomSeq(object):
     sig_files = glob("{0}/*.csv".format(self.signatures_dir))
     sigs_pd = []
     sigs = []
-    
+
     for f in sig_files:
       v = f.split("/")[-1].split(".")[0]
       sig = pd.read_csv(f, sep=",")
@@ -83,7 +83,7 @@ class VenomSeq(object):
 
   def compute_connectivities(self):
     pass
-  
+
   def normalize_connectivities(self):
     pass
 
