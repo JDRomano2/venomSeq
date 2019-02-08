@@ -22,6 +22,8 @@ class VenomSeq(object):
     self.cmap = self.read_reference_dataset()
     self.signatures = self.read_signatures()
 
+    self.init_connectivity()
+
     # Handle gene symbols
     self.hsap_symbol_map = np.load(SYMBOL_MAP_FNAME)
     self.cmap_genes = self.process_cmap_genes()
@@ -34,6 +36,26 @@ class VenomSeq(object):
     """.format(
       len(self.signatures)
     )
+
+  def init_connectivity(self):
+    ConnectivityData = namedtuple('ConnectivityData', ['wcs','ncs','tau'])
+    self.connectivity = ConnectivityData(wcs=None, ncs=None, tau=None)
+
+  def load(self,
+           wcs_file=None,
+           ncs_file=None,
+           tau_file=None):
+    """Load precomputed VenomSeq data from local files.
+    """
+    if not (wcs_file or ncs_file or tau_file):
+      raise Exception('Must supply at least one filename argument to load().')
+
+    if wcs_file is not None:
+      self.connectivity.wcs = np.load(wcs_file)
+    if ncs_file is not None:
+      self.connectivity.ncs = np.load(ncs_file)
+    if tau_file is not None:
+      self.connectivity.tau = np.load(tau_file)
 
   def process_cmap_genes(self):
     """Parse an integer-valued list of NCBI gene IDs corresponding

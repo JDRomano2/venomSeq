@@ -3,6 +3,7 @@ from tqdm import tqdm
 import time
 from collections import defaultdict
 
+import ipdb
 
 # Default metaparameters
 BLOCK_NCOLS = 1000
@@ -30,10 +31,10 @@ class Connectivity(Algorithm):
     if self.verbose:
       print("Beginning connectivity analysis algorithm.")
 
-    venoms = []
-    dim_cmap = self.venomseq.cmap.data.shape
+    self.venoms = []
+    self.dim_cmap = self.venomseq.cmap.data.shape
 
-    self.chunk_idxs = self.get_col_blocks(dim_cmap, (dim_cmap[0], self.block_ncols))
+    self.chunk_idxs = self.get_col_blocks(self.dim_cmap, (self.dim_cmap[0], self.block_ncols))
 
     # Perform main steps of the algorithm
     self.compute_wcs()
@@ -41,19 +42,24 @@ class Connectivity(Algorithm):
     self.normalize_connectivities()
     self.tau_quantize()
 
+    # Copy data to VenomSeq instance
+    self.venomseq.connectivity = self.venomseq.connectivity._replace(wcs=self.wcs)
+    self.venomseq.connectivity = self.venomseq.connectivity._replace(ncs=self.ncs)
+    self.venomseq.connectivity = self.venomseq.connectivity._replace(tau=self.tau)
+
   def compute_wcs(self):
     if self.verbose:
       print("Computing weighted connectivity scores (WCSs); this may take a while.")
 
     wcs_start = time.time()
-    wcs = np.zeros((dim_cmap[1], len(self.venomseq.signatures)))
+    wcs = np.zeros((self.dim_cmap[1], len(self.venomseq.signatures)))
 
     # For each venom...
     for v_idx, v_sig in tqdm(enumerate(self.venomseq.signatures), disable=(not self.verbose)):
-      venoms.append(v_sig['venom'])
+      self.venoms.append(v_sig['venom'])
 
       # One venom's worth of WCSs
-      scores = np.zeros(dim_cmap[1])
+      scores = np.zeros(self.dim_cmap[1])
 
       up_ids = self.symbols_2_ids(v_sig['up_list'])
       down_ids = self.symbols_2_ids(v_sig['down_list'])
@@ -118,7 +124,7 @@ class Connectivity(Algorithm):
     for x in tqdm(range(self.wcs.shape[-1]), total=self.wcs.shape[-1]):
       cell_type = self.venomseq.cmap.cols.iloc[x]['cell_id']
       pert_type = self.venomseq.cmap.cols.iloc[x]['pert_type']
-      mus = mu[cell_type][pert_type]
+      mus = self.mu[cell_type][pert_type]
 
       normalized_col = []
       # y: venom number
@@ -129,7 +135,7 @@ class Connectivity(Algorithm):
         elif w < 0.:
           ncs_ct[y,x] = -(w / mus[1]) # negative
 
-    self.ncs_ct
+    self.ncs = ncs_ct
 
   def tau_quantize(self):
 
@@ -137,9 +143,11 @@ class Connectivity(Algorithm):
       print("Computing Tau scores from normalized connectivity scores.")
 
     x, y = np.unique(self.venomseq.cmap.cols['cell_id'], return_counts=True)
-    kept_cell_lines = list(x[y >= 1000])
+    kept_cell_lines = list(x[y >= 10])
 
     all_taus = {}
+
+    ipdb.set_trace()
 
     for cl in tqdm(kept_cell_lines, disable=(not self.verbose)):
       cur_cell_idxs = np.array((self.venomseq.cmap.cols.loc[self.venomseq.cmap.cols['cell_id'] == cl].sig_num))
@@ -158,6 +166,7 @@ class Connectivity(Algorithm):
         'taus': cur_cell_taus
       }
 
+    self.tau = all_taus
     # TODO: Reconstruct the complete matrix of tau scores
 
 
