@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 from tqdm import tqdm
 import time
 from collections import defaultdict
@@ -147,11 +148,9 @@ class Connectivity(Algorithm):
 
     all_taus = {}
 
-    ipdb.set_trace()
-
     for cl in tqdm(kept_cell_lines, disable=(not self.verbose)):
       cur_cell_idxs = np.array((self.venomseq.cmap.cols.loc[self.venomseq.cmap.cols['cell_id'] == cl].sig_num))
-      cur_cell_ncs = self.ncs_ct[:,cur_cell_idxs]
+      cur_cell_ncs = self.ncs[:,cur_cell_idxs]
       cur_cell_abs = np.abs(cur_cell_ncs).flatten() # Scipy's quantile score freaks out if you don't flatten
       cur_cell_taus = np.zeros_like(cur_cell_ncs)
 
@@ -166,8 +165,11 @@ class Connectivity(Algorithm):
         'taus': cur_cell_taus
       }
 
-    self.tau = all_taus
-    # TODO: Reconstruct the complete matrix of tau scores
+    t = np.zeros_like(self.ncs)
+    for _, data in all_taus.items():
+      t[:,data['idxs']] = data['taus']
+    
+    self.tau = t
 
 
   def ranked_ids(self, drug_arr, desc=True):
