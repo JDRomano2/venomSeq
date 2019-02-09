@@ -33,7 +33,8 @@ class Connectivity(Algorithm):
       print("Beginning connectivity analysis algorithm.")
 
     self.venoms = []
-    self.dim_cmap = self.venomseq.cmap.data.shape
+    #self.dim_cmap = self.venomseq.cmap.data.shape
+    self.dim_cmap = (self.venomseq.cmap.rows.shape[0], self.venomseq.cmap.cols.shape[0])
 
     self.chunk_idxs = self.get_col_blocks(self.dim_cmap, (self.dim_cmap[0], self.block_ncols))
 
@@ -168,7 +169,7 @@ class Connectivity(Algorithm):
     t = np.zeros_like(self.ncs)
     for _, data in all_taus.items():
       t[:,data['idxs']] = data['taus']
-    
+
     self.tau = t
 
 
