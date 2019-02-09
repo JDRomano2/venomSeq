@@ -3,22 +3,26 @@ from glob import glob
 import pandas as pd
 import numpy as np
 import os
+import json
 
 from .utils import read_gctx
 from .visualizations import *
 
 SYMBOL_MAP_FNAME = os.path.join(os.path.dirname(__file__), "data", "symbol_map.npy")
+DEFAULT_PCL_FNAME = os.path.join(os.path.dirname(__file__), "data", "pcls.json")
 
 class VenomSeq(object):
   def __init__(self,
                samples_file = None,
                gctx_file = None,
                signatures_dir = None,
+               pcls_file = DEFAULT_PCL_FNAME,
                verbose = True):
     #self.counts_file = counts_file
     self.verbose = verbose
     self.samples_file = samples_file  # Metadata describing venom samples
     self.gctx_file = gctx_file
+    self.pcls_file = pcls_file
     self.signatures_dir = signatures_dir
 
     if self.verbose:
@@ -35,6 +39,11 @@ class VenomSeq(object):
     # Handle gene symbols
     self.hsap_symbol_map = np.load(SYMBOL_MAP_FNAME)
     self.cmap_genes = self.process_cmap_genes()
+
+    if self.verbose:
+      print("Parsing perturbagen class (PCL) data.")
+    with open(self.pcls_file, 'r') as fp:
+      self.pcls = json.load(fp)
 
     if self.verbose:
       print("Data structures initialized - VenomSeq is now ready for use!")
@@ -105,6 +114,16 @@ class VenomSeq(object):
     filter_idxs = np.intersect1d(cell_idxs, pert_idxs)
 
     return subset[filter_idxs,:]
+
+  def pcl_signatures_with_annotations(self, type='tau'):
+    if type == 'wcs':
+      subset = self.connectivity.wcs
+    elif type == 'ncs':
+      subset = self.connectivity.ncs
+    elif type == 'tau':
+      subset = self.connectivity.tau
+
+
 
   def _cell_type_idxs(self, cell_type):
     mask = np.array(self.cmap.cols.cell_id == cell_type)
