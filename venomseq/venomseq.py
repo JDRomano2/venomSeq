@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import os
 import json
+from scipy import stats
+import itertools
 
 from .utils import read_gctx
 from .visualizations import *
@@ -77,7 +79,8 @@ class VenomSeq(object):
     if tau_file is not None:
       self.connectivity = self.connectivity._replace(tau=np.load(tau_file))
 
-  def subset_connectivity_data(self, type='tau', cell_line=None, pert_type='trt_cp'):
+  def subset_connectivity_data(self, type='tau', cell_line=None, pert_type='trt_cp',
+                               top_n=None, top_n_metric='var'):
     """Retrieve a subset of a data matrix matching certain conditions.
 
     Parameters
@@ -90,6 +93,14 @@ class VenomSeq(object):
     pert_type : str, optional
       Perturbagen type to filter for. If omitted, all perturbagen types will be
       returned.
+    top_n : int, optional
+      Provide this argument if you would like only the top N features (connectivites)
+      across all venoms with regards to a certain metric. This is especially useful
+      for filtering out features with low variance, which can make visualizations
+      and clusterings much more challenging to interpret. 
+    top_n_metric : str, optional
+      String argument corresponding to the metric used for determining the top_n
+      features. Changing this parameter only has an effect if `top_n` is not `None`.
 
     Returns
     -------
@@ -113,9 +124,17 @@ class VenomSeq(object):
 
     filter_idxs = np.intersect1d(cell_idxs, pert_idxs)
 
-    return subset[filter_idxs,:]
+    subset = subset[filter_idxs,:]
 
-  def pcl_signatures_with_annotations(self, type='tau'):
+    if top_n: 
+      metric_values = np.var(subset, axis=1)
+      metric_ranks = stats.rankdata(metric_values)
+      greatest_n = metric_ranks.argsort()[-(top_n):]
+      subset = subset[greatest_n,:]
+
+    return subset
+
+  def pcl_signatures_with_annotations(self, type='tau', top_n=None, top_n_metric='var', cell_line='A375', pert_type='trt_cp'):
     if type == 'wcs':
       subset = self.connectivity.wcs
     elif type == 'ncs':
@@ -123,7 +142,45 @@ class VenomSeq(object):
     elif type == 'tau':
       subset = self.connectivity.tau
 
+    # Get indices for pcl sig ids
+    pcl_sig_ids = self._pcl_idxs()
+    sig_idx_mask = self.cmap.cols.index.isin(pcl_sig_ids)
+    sig_idx = np.where(np.array(sig_idx_mask))[0]
 
+    # If we need to mask cell types and pert types:
+    cell_idxs = np.arange(subset.shape[0])
+    pert_idxs = np.arange(subset.shape[0])
+    if cell_line:
+      cell_idxs = self._cell_type_idxs(cell_line)
+    if pert_type:
+      pert_idxs = self._pert_type_idxs(pert_type)
+
+    filter_idxs = np.intersect1d(cell_idxs, pert_idxs)
+    filter_idxs = np.intersect1d(filter_idxs, sig_idx)
+
+    subset = subset[filter_idxs,:]
+    pcl_annotations = self.cmap.cols.loc[sig_idx_mask,:]
+
+    if top_n:
+      metric_values = np.var(subset, axis=1)
+      metric_ranks = stats.rankdata(metric_values)
+      greatest_n = metric_ranks.argsort()[-(top_n):]
+      subset = subset[greatest_n,:]
+      pcl_annotations = pcl_annotations.iloc[greatest_n,:]
+
+    return (subset, pcl_annotations)
+
+  def _pcl_idxs(self):
+    all_pcl_sig_ids = []
+    
+    for pcl in self.pcls:
+      this_pcl_sig_ids = [x['sig_id'] for x in pcl['perts']]
+      this_pcl_sig_ids = list(itertools.chain.from_iterable(this_pcl_sig_ids))
+      all_pcl_sig_ids.append(this_pcl_sig_ids)
+    all_pcl_sig_ids = list(itertools.chain.from_iterable(all_pcl_sig_ids))
+    all_pcl_sig_ids = np.array(list(set(all_pcl_sig_ids))) # Remove duplicates
+    
+    return all_pcl_sig_ids
 
   def _cell_type_idxs(self, cell_type):
     mask = np.array(self.cmap.cols.cell_id == cell_type)

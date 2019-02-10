@@ -128,7 +128,7 @@ class Connectivity(Algorithm):
       pert_type = self.venomseq.cmap.cols.iloc[x]['pert_type']
       mus = self.mu[cell_type][pert_type]
 
-      normalized_col = []
+      #normalized_col = [] <-- Did I need this...?
       # y: venom number
       for y in range(self.wcs.shape[0]):
         w = self.wcs[y,x]
