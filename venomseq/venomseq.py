@@ -6,9 +6,12 @@ import os
 import json
 from scipy import stats
 import itertools
+from tqdm import tqdm
 
 from .utils import read_gctx
 from .visualizations import *
+
+import ipdb
 
 SYMBOL_MAP_FNAME = os.path.join(os.path.dirname(__file__), "data", "symbol_map.npy")
 DEFAULT_PCL_FNAME = os.path.join(os.path.dirname(__file__), "data", "pcls.json")
@@ -159,7 +162,7 @@ class VenomSeq(object):
     filter_idxs = np.intersect1d(filter_idxs, sig_idx)
 
     subset = subset[filter_idxs,:]
-    pcl_annotations = self.cmap.cols.loc[sig_idx_mask,:]
+    pcl_annotations = self.cmap.cols.iloc[filter_idxs,:]
 
     if top_n:
       metric_values = np.var(subset, axis=1)
@@ -169,6 +172,48 @@ class VenomSeq(object):
       pcl_annotations = pcl_annotations.iloc[greatest_n,:]
 
     return (subset, pcl_annotations)
+
+  def pcls_from_annotations(self, annot):
+    """Given a DataFrame of annotation data corresponding to connectivity map
+    profiles (e.g., the second value returned by `pcl_signatures_with_annotations()`),
+    this method returns PCL membership for each of the signatures in that list, in
+    order. This is useful, for example, when you want to annotate rows in a clustermap
+    with PCL membership to see if PCLs cluster together.
+
+    Parameters
+    ----------
+    annot : pd.DataFrame
+      The data frame corresponding to a block of connectivity scores. These should be
+      sorted in the same order as the rows (0'th axis) of the score matrix. The index
+      of this dataframe should be the signature IDs.
+    """
+    # To reduce time complexity, we first create a boolean vector that indicates
+    # whether the signature is in ANY PCL. If it is, we can then loop through
+    # all PCLs to determine membership. This effectively skips evaluation of
+    # the majority of signatures.
+    pcl_sig_ids = self._pcl_idxs()
+    sig_idx_mask = self.cmap.cols.index.isin(pcl_sig_ids)
+    sigs_in_pcls = set(self.cmap.cols.index[sig_idx_mask])
+
+    pcl_sig_id_index = {}
+    for p in self.pcls:
+      unjoined = [x['sig_id'] for x in p['perts']]
+      joined = list(itertools.chain.from_iterable(unjoined))
+      pcl_sig_id_index[p['group_id']] = joined
+    
+    pcl_membership = []
+    for sig_id in tqdm(annot.index):
+      if sig_id in sigs_in_pcls:
+        this_membership = []
+        # loop through PCLs and test membership
+        for pcl in self.pcls:
+          if sig_id in pcl_sig_id_index[pcl['group_id']]:
+            this_membership.append(pcl['group_id'])
+      pcl_membership.append(this_membership)
+      
+    assert (len(pcl_membership) == annot.shape[0])
+    
+    return pcl_membership
 
   def _pcl_idxs(self):
     all_pcl_sig_ids = []
