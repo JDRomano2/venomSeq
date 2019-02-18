@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+import setuptools
 
 MAJOR       = 0
 MINOR       = 1
@@ -14,11 +14,12 @@ else:
 with open("README.md", "r") as fp:
   long_description = fp.read()
 
-setup(
+setuptools.setup(
   name='VenomSeq',
   version=VERSION,
   description='Python code for performing the data analysis in the VenomSeq workflow',
   long_description=long_description,
+  long_description_content_type="text/markdown",
   author='Joseph D. Romano',
   author_email='jdromano2@gmail.com',
   url='https://github.com/jdromano2/venomseq',
@@ -32,5 +33,12 @@ setup(
     "Natural Language :: English",
     "Programming Language :: Python :: 3.6",
     "Topic :: Scientific/Engineering :: Bio-Informatics"
+  ],
+  install_requires=[
+    'numpy',
+    'scipy',
+    'pandas',
+    'matplotlib',
+    'tqdm'
   ]
 )
