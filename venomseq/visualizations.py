@@ -12,7 +12,7 @@ def pca_plot(venomseq):
   ax.scatter(X_r[:,0], X_r[:,1], s=12)
   return ax
 
-def heatmap(matrix, annotations):
+def heatmap(matrix, annotations=None):
   sns.clustermap(data=matrix)
 
 # def heatmap_wrapper(data, vmin=None, vmax=None, cmap=None, center=None, robust=False,
