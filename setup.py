@@ -3,7 +3,7 @@
 import setuptools
 
 MAJOR       = 0
-MINOR       = 1
+MINOR       = 11
 PRERELEASE  = 'alpha'
 ISRELEASED  = False
 if PRERELEASE:
