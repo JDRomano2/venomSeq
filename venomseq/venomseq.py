@@ -8,18 +8,25 @@ from scipy import stats
 import itertools
 from tqdm import tqdm
 
+from cmapPy.pandasGEXpress.parse import parse
+
 from .utils import read_gctx
 from .visualizations import *
 
 import ipdb
 
-SYMBOL_MAP_FNAME = os.path.join(os.path.dirname(__file__), "data", "symbol_map.npy")
+SYMBOL_MAP_FNAME = os.path.join(os.path.dirname(__file__), "data", "symbol_map.csv")
 DEFAULT_PCL_FNAME = os.path.join(os.path.dirname(__file__), "data", "pcls.json")
 
 class VenomSeq(object):
   def __init__(self,
                samples_file = None,
                gctx_file = None,
+               gctx_cols_file = None,
+               gctx_rows_file = None,
+               hdf_file = None,
+               hdf_cols_file = None,
+               hdf_rows_file = None,
                signatures_dir = None,
                pcls_file = DEFAULT_PCL_FNAME,
                verbose = True):
@@ -27,11 +34,17 @@ class VenomSeq(object):
     self.verbose = verbose
     self.samples_file = samples_file  # Metadata describing venom samples
     self.gctx_file = gctx_file
+    self.gctx_cols_file = gctx_cols_file
+    self.gctx_rows_file = gctx_rows_file
+    self.hdf_file = hdf_file
+    self.hdf_cols_file = hdf_cols_file
+    self.hdf_rows_file = hdf_rows_file
     self.pcls_file = pcls_file
     self.signatures_dir = signatures_dir
 
-    if self.verbose:
-      print("Loading reference dataset; this may take a while...")
+    if not(self._validate_args()):
+      raise ValueError("Must pass either GCTX or HDF5 files as input (but not both)")
+
     self.cmap = self.read_reference_dataset()
     if self.verbose:
       print("...done.")
@@ -42,7 +55,9 @@ class VenomSeq(object):
     if self.verbose:
       print("Loading gene symbol data.")
     # Handle gene symbols
-    self.hsap_symbol_map = np.load(SYMBOL_MAP_FNAME)
+    #self.hsap_symbol_map = np.load(SYMBOL_MAP_FNAME)
+    hs_symb_map = pd.read_csv(SYMBOL_MAP_FNAME)
+    self.hsap_symbol_map = np.flip(np.array(hs_symb_map), axis=0)
     self.cmap_genes = self.process_cmap_genes()
 
     if self.verbose:
@@ -61,6 +76,26 @@ class VenomSeq(object):
     """.format(
       len(self.signatures)
     )
+
+  def _validate_args(self):
+    gctx_load_minimal = bool(self.gctx_file)
+    gctx_load_full = bool(self.gctx_file) & bool(self.gctx_rows_file) & bool(self.gctx_cols_file)
+    hdf_load = bool(self.hdf_file) & bool(self.hdf_cols_file) & bool(self.hdf_rows_file)
+
+    valid = ( (gctx_load_minimal | gctx_load_full) ^ hdf_load )
+
+    if valid:
+      if hdf_load:
+        if self.verbose:
+          print("Reading data in HDF5 mode")
+        self.input_mode = "hdf"
+      else:
+        if self.verbose:
+          print("Reading data in GCTX mode")
+        self.input_mode = "gctx"
+      return True
+    else:
+      return False
 
   def init_connectivity(self):
     ConnectivityData = namedtuple('ConnectivityData', ['wcs','ncs','tau'])
@@ -247,11 +282,37 @@ class VenomSeq(object):
     if cmap_genes[0][-3:] == '_at':
       # We need to look in a different column for the gene IDs
       cmap_genes = self.cmap.rows['pr_gene_id'].astype(int).tolist()
+    cmap_genes = cmap_genes.astype(int)
     return cmap_genes
 
   def read_reference_dataset(self):
     CMap = namedtuple('CMap', ['data', 'cols', 'rows'])
-    data_df, cm, rm = read_gctx(self.gctx_file, ignore_data_df=True)
+    #data_df, cm, rm = read_gctx(self.gctx_file, ignore_data_df=True)
+    
+    if self.input_mode == "hdf":
+      if self.verbose:
+        print("Reading data from HDF5 files, this may take a while...")
+      data_df = pd.read_hdf(self.hdf_file, key="DF")
+      cm = pd.read_hdf(self.hdf_cols_file, key="CM")
+      rm = pd.read_hdf(self.hdf_rows_file, key="RM")
+
+    elif self.input_mode == "cmap":
+      if self.verbose:
+        print("Reading data from GCTX file, this may take a while...")
+      cmap = parse(self.gctx_file)
+      if self.verbose:
+        print("  ...finished.")
+        print("Now, manipulating metadata.")
+      data_df = cmap.data_df
+      del(cmap)
+      data_df.columns = [c[2:-1] for c in data_df.columns]
+      data_df.index = [r[2:-1] for r in data_df.index]
+      cm = pd.read_hdf("C:/data/out_cm.h5")
+      rm = pd.read_hdf("C:/data/out_rm.h5")
+    
+    else:
+      raise RuntimeError("Uh oh, something went wrong with setting the input files... this may be a bug!")
+    
     return CMap(data=data_df, cols=cm, rows=rm)
 
   def read_signatures(self):

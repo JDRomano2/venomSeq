@@ -1,6 +1,6 @@
 import numpy as np
 import scipy as sp
-from tqdm import tqdm
+from tqdm import tqdm, tqdm_notebook
 import time
 from collections import defaultdict
 
@@ -22,11 +22,15 @@ class Connectivity(Algorithm):
   def __init__(self,
                venomseq,
                block_ncols=BLOCK_NCOLS,
-               verbose=True):
+               verbose=True,
+               backup_wcs=True,
+               backup_fname="wcs_backup.npy"):
     super(Connectivity, self).__init__(venomseq=venomseq)
     self.verbose = verbose
 
     self.block_ncols = block_ncols
+    self.backup_wcs = backup_wcs
+    self.backup_fname = backup_fname
 
   def run(self):
     if self.verbose:
@@ -57,7 +61,7 @@ class Connectivity(Algorithm):
     wcs = np.zeros((self.dim_cmap[1], len(self.venomseq.signatures)))
 
     # For each venom...
-    for v_idx, v_sig in tqdm(enumerate(self.venomseq.signatures), disable=(not self.verbose)):
+    for v_idx, v_sig in enumerate(tqdm_notebook(self.venomseq.signatures, disable=(not self.verbose), desc='Query signature')):
       self.venoms.append(v_sig['venom'])
 
       # One venom's worth of WCSs
@@ -71,7 +75,7 @@ class Connectivity(Algorithm):
       down_ids_filter = self.filter_cmap_genes(down_ids)
 
       # For each block of reference signatures...
-      for chunk_col_idx in tqdm(self.chunk_idxs, disable=(not self.verbose)):
+      for chunk_col_idx in tqdm_notebook(self.chunk_idxs, disable=(not self.verbose), desc='CMap data chunk', leave=False):
         c_start, c_end = chunk_col_idx
         chunk = np.array(self.venomseq.cmap.data.iloc[:,c_start:(c_end+1)])
 
@@ -82,6 +86,9 @@ class Connectivity(Algorithm):
           scores[chunk_col_idx[0]+i] = ss
 
       wcs[:,v_idx] = scores
+      self.wcs = wcs.T
+      if self.backup_wcs:
+        np.save(self.backup_fname, wcs.T)
 
     wcs_end = time.time()
     wcs_delta = wcs_end - wcs_start
@@ -207,7 +214,12 @@ class Connectivity(Algorithm):
       # insert that value into V
       V[j] = matched[0]
 
-    V.sort
+    # !! WTF IS THIS??
+    # TODO
+    # This shouldn't do anything... why was it in here in the first place though?
+    # This statement exists in the old version of the algorithm, before it was compiled into a package.
+    # Do we need to be sorting any array? Hopefully not, that doesn't make sense.
+    #V.sort
 
     a = 0.
     b = 0.
@@ -225,7 +237,16 @@ class Connectivity(Algorithm):
 
   def symbols_2_ids(self, symbols):
     vsm = self.venomseq.hsap_symbol_map
-    return [int(np.squeeze(vsm[vsm[:,0] == x,:])[1]) for x in symbols]
+    #return [np.squeeze(vsm[vsm[:,1] == x,:])[0] for x in symbols]
+    ids = []
+    for x in symbols:
+      try:
+        ii = np.squeeze(vsm[vsm[:,1] == x,:])[0]
+        ids.append(ii)
+      except IndexError:
+        print("Error on: {0}".format(x))
+        ids.append(0)
+    return(ids)
 
   def filter_cmap_genes(self, comp_ids):
     mask = np.in1d(comp_ids, self.venomseq.cmap_genes)
