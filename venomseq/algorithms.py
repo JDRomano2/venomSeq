@@ -21,6 +21,8 @@ class Connectivity(Algorithm):
   """
   def __init__(self,
                venomseq,
+               wcs_pre_fname=None,
+               tau_pre_fname=None,
                block_ncols=BLOCK_NCOLS,
                verbose=True,
                backup_wcs=True,
@@ -28,9 +30,16 @@ class Connectivity(Algorithm):
     super(Connectivity, self).__init__(venomseq=venomseq)
     self.verbose = verbose
 
+    self.wcs_pre_fname = wcs_pre_fname
+    self.tau_pre_fname = tau_pre_fname
     self.block_ncols = block_ncols
     self.backup_wcs = backup_wcs
     self.backup_fname = backup_fname
+
+    if hasattr(self, 'wcs_pre_fname'):
+      if self.verbose:
+        print("Using precomputed matrix of WCS")
+      self.wcs = np.load(self.wcs_pre_fname)
 
   def run(self):
     if self.verbose:
@@ -43,10 +52,15 @@ class Connectivity(Algorithm):
     self.chunk_idxs = self.get_col_blocks(self.dim_cmap, (self.dim_cmap[0], self.block_ncols))
 
     # Perform main steps of the algorithm
-    self.compute_wcs()
+    if not hasattr(self, 'wcs'):
+      if self.verbose:
+        print("Weighted connectivity scores not provided; we'll compute them now.")
+      self.compute_wcs()
     self.compute_genewise_statistics()
-    self.normalize_connectivities()
-    self.tau_quantize()
+    if not hasattr(self, 'ncs'):
+      self.normalize_connectivities()
+    if not hasattr(self, 'tau'):
+      self.tau_quantize()
 
     # Copy data to VenomSeq instance
     self.venomseq.connectivity = self.venomseq.connectivity._replace(wcs=self.wcs)
@@ -99,15 +113,25 @@ class Connectivity(Algorithm):
     # TODO: Make the transpose unnecessary to alleviate future confusion
     self.wcs = wcs.T
 
-  def compute_genewise_statistics(self):
+  def compute_genewise_statistics(self, cell_types=None, pert_types=None):
     if self.verbose:
       print("Computing means for cell type and perturbagen type combinations")
 
     mu = defaultdict(dict)
-    all_cell_types = set(self.venomseq.cmap.cols['cell_id'])
-    all_pert_types = set(self.venomseq.cmap.cols['pert_type'])
-    for c in tqdm(all_cell_types, disable=(not self.verbose)):
-      for t in all_pert_types:
+    
+    if cell_types == None:
+      kept_cell_types = set(self.venomseq.cmap.cols['cell_id'])
+    else:
+      kept_cell_types = set(cell_types)
+    
+    if pert_types == None:
+      kept_pert_types = set(self.venomseq.cmap.cols['pert_type'])
+    else:
+      kept_pert_types = set(pert_types)
+    
+    for c in tqdm_notebook(kept_cell_types, disable=(not self.verbose)):
+      for t in kept_pert_types:
+        # gets us columns of the WCS matrix 
         sub_df = self.venomseq.cmap.cols[ \
           (self.venomseq.cmap.cols['cell_id']==c) & \
           (self.venomseq.cmap.cols['pert_type']==t)]
@@ -130,7 +154,7 @@ class Connectivity(Algorithm):
     ncs_ct = np.zeros(self.wcs.shape)
 
     # x: CMap signature index
-    for x in tqdm(range(self.wcs.shape[-1]), total=self.wcs.shape[-1]):
+    for x in tqdm_notebook(range(self.wcs.shape[-1]), total=self.wcs.shape[-1]):
       cell_type = self.venomseq.cmap.cols.iloc[x]['cell_id']
       pert_type = self.venomseq.cmap.cols.iloc[x]['pert_type']
       mus = self.mu[cell_type][pert_type]
@@ -146,24 +170,29 @@ class Connectivity(Algorithm):
 
     self.ncs = ncs_ct
 
-  def tau_quantize(self):
+  def tau_quantize(self, cell_type_n_threshold=500):
 
     if self.verbose:
       print("Computing Tau scores from normalized connectivity scores.")
 
     x, y = np.unique(self.venomseq.cmap.cols['cell_id'], return_counts=True)
-    kept_cell_lines = list(x[y >= 10])
+    # Only keep cell lines with greater than a certain number of signatures
+    kept_cell_lines = list(x[y >= cell_type_n_threshold])
+    if self.verbose:
+      print("Computing tau for {0} cell lines with at least {1} signatures".format(len(kept_cell_lines), cell_type_n_threshold))
+
+    #ipdb.set_trace()
 
     all_taus = {}
 
-    for cl in tqdm(kept_cell_lines, disable=(not self.verbose)):
+    for cl in tqdm_notebook(kept_cell_lines, disable=(not self.verbose)):
       cur_cell_idxs = np.array((self.venomseq.cmap.cols.loc[self.venomseq.cmap.cols['cell_id'] == cl].sig_num))
       cur_cell_ncs = self.ncs[:,cur_cell_idxs]
       cur_cell_abs = np.abs(cur_cell_ncs).flatten() # Scipy's quantile score freaks out if you don't flatten
       cur_cell_taus = np.zeros_like(cur_cell_ncs)
 
-      for i in tqdm(range(0, cur_cell_ncs.shape[0]), leave=False, disable=(not self.verbose)):
-        for j in tqdm(range(0, cur_cell_ncs.shape[1]), leave=False, disable=(not self.verbose)):
+      for i in tqdm_notebook(range(0, cur_cell_ncs.shape[0]), leave=False, disable=(not self.verbose)):
+        for j in tqdm_notebook(range(0, cur_cell_ncs.shape[1]), leave=False, disable=(not self.verbose)):
           sgn = np.sign(cur_cell_ncs[i,j])
           tau = sgn * sp.stats.percentileofscore(cur_cell_abs, np.abs(cur_cell_ncs[i,j]))
           cur_cell_taus[i,j] = tau

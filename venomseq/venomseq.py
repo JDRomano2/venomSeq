@@ -312,6 +312,11 @@ class VenomSeq(object):
     
     else:
       raise RuntimeError("Uh oh, something went wrong with setting the input files... this may be a bug!")
+
+    # Add numerical index column to cm. This will later allow us
+    # to retrieve subsets of columns from the wcs/ncs/tau matrices
+    # using a filtered copy of cm.
+    cm['sig_num'] = np.arange(len(cm.index), dtype=int)
     
     return CMap(data=data_df, cols=cm, rows=rm)
 
